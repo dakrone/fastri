@@ -1,3 +1,5 @@
+Note: Forked by me for Ruby 1.9.1 support.
+
 FastRI Copyright (C) 2006  Mauricio Fernandez <mfp@acm.org>
 Inspired by ri-emacs.rb by Kristof Bastiaensen <kristof@vleeuwen.org>
 
