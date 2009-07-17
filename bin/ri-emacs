@@ -1,0 +1,202 @@
+#!/usr/bin/env ruby
+## drop-in replacement for the ri-emacs helper script for use 
+#  with ri-ruby.el, using the FastRI service via DRb
+#
+# Based on ri-emacs.rb by Kristof Bastiaensen <kristof@vleeuwen.org>
+#
+#    Copyright (C) 2004,2006 Kristof Bastiaensen
+#                  2006 Mauricio Fernandez <mfp@acm.org>
+#    
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#----------------------------------------------------------------------
+
+require 'rinda/ring'
+require 'optparse'
+require 'fastri/util'
+
+# {{{ cmdline parsing and service discovery
+# we bind to 127.0.0.1 by default, because otherwise Ruby will try with
+# 0.0.0.0, which results in a DNS request, adding way too much latency
+options = {:addr => "127.0.0.1", :width => ENV['RI_EMACS_COLUMNS'] ? ENV['RI_EMACS_COLUMNS'].to_i : 72}
+override_addr_env = false
+optparser = OptionParser.new do |opts|
+  opts.banner = "Usage: ri-emacs [options] <query>"
+
+  opts.on("-s", "--bind [ADDR]", "Bind to ADDR for incoming DRb connections.",
+          "(default: 127.0.0.1)") do |addr|
+    options[:addr] = addr
+    override_addr_env = true
+  end
+
+  opts.on("-w", "--width WIDTH", "Set the width of the output.") do |width|
+    options[:width] = width
+  end
+
+  opts.on("-h", "--help", "Show this help message") do 
+    puts opts
+    exit
+  end
+end
+optparser.parse!
+
+if override_addr_env
+  addr = "druby://#{options[:addr]}:0"
+else
+  addr =  "druby://#{ENV["FASTRI_ADDR"]||options[:addr]}:0"
+end
+
+begin
+  DRb.start_service(addr)
+  ring_server = Rinda::RingFinger.primary
+rescue Exception
+  puts <<EOF
+Couldn't initialize DRb and locate the Ring server.
+
+Please make sure that:
+ * the fastri-server is running, the server is bound to the correct interface,
+   and the ACL setup allows connections from this host
+ * fri is using the correct interface for incoming DRb requests:
+   either set the FASTRI_ADDR environment variable, or use --bind ADDR, e.g
+      export FASTRI_ADDR="192.168.1.12"
+      fri Array
+EOF
+  exit(-1)                      # '
+end
+service = ring_server.read([:name, :FastRI, nil, nil])[2]
+
+class EventLoop
+  include FastRI::Util::MagicHelp
+
+  def initialize(ri, options)
+    @ri = ri
+    @opts = options
+  end
+
+  def run
+    puts "READY"
+    loop do
+      line = $stdin.gets
+      cmd, p = /(\w+)(.*)$/.match(line)[1..2]
+      p.strip!
+      case cmd
+      when "TRY_COMPLETION";       puts complete_try(p)
+      when "COMPLETE_ALL";         puts complete_all(p)
+      when "LAMBDA";               puts complete_lambda(p)
+      when "CLASS_LIST";           puts class_list(p)
+      when "CLASS_LIST_WITH_FLAG"; puts class_list_with_flag(p)
+      when "DISPLAY_ARGS";         display_args(p)
+      when "DISPLAY_INFO";         display_info(p)
+      end
+    end
+  end
+
+  def complete_try(keyw)
+    list = @ri.completion_list(keyw)
+    if list.nil? 
+      return "nil"
+    elsif list.size == 1 and
+      list[0].split(/(::)|#|\./) == keyw.split(/(::)|#|\./)
+      return "t"
+    end
+
+    first = list.shift;
+    if first =~ /(.*)((?:::)|(?:#))(.*)/
+      other = $1 + ($2 == "::" ? "#" : "::") + $3
+    end
+
+    len = first.size
+    match_both = false
+    list.each do |w|
+      while w[0, len] != first[0, len]
+        if other and w[0, len] == other[0, len]
+          match_both = true
+          break
+        end
+        len -= 1
+      end
+    end
+
+    if match_both
+      return other.sub(/(.*)((?:::)|(?:#))/) { $1 + "." }[0, len].inspect
+    else
+      return first[0, len].inspect
+    end
+  end
+
+  def complete_all(keyw)
+    list = @ri.completion_list(keyw)
+    if list.nil?
+      "nil"
+    else
+      "(" + list.map { |w| w.inspect }.join(" ") + ")"
+    end
+  end
+
+  def complete_lambda(keyw)
+    list = @ri.completion_list(keyw)
+    if list.nil?
+      "nil"
+    else
+      if list.find { |n| n.split(/(::)|#|\./) == keyw.split(/(::)|#|\./) }
+        "t"
+      else
+        "nil"
+      end
+    end
+  end
+
+  def class_list(keyw)
+    list = @ri.class_list(keyw)
+    if list
+      "(" + list.map{|x| "(#{x.inspect})"}.join(" ") + ")"
+    else
+      "nil"
+    end
+  end
+
+  def class_list_with_flag(keyw)
+    list = @ri.class_list_with_flag(keyw)
+    if list
+      "(" + list.map{|x| "(#{x.inspect})"}.join(" ") + ")"
+    else
+      "nil"
+    end
+  end
+
+  def display_(what, keyw)
+    data = @ri.__send__(what, magic_help(keyw), :width => @opts[:width])
+    if data
+      puts data
+    elsif (new_keyw = FastRI::Util.change_query_method_type(keyw)) != keyw
+      puts @ri.__send__(what, new_keyw, :width => @opts[:width])
+    end
+    puts "RI_EMACS_END_OF_INFO"
+  end
+
+  def display_args(keyw)
+    display_ :args, keyw
+  end
+
+  def display_info(keyw)
+    display_ :info, keyw
+  end
+end
+
+
+#{{{ event loop
+#$stdout.sync = true # better not set sync=true, causes problems with emacs
+EventLoop.new(service, options).run
+
+# vi: set sw=2 expandtab:

@@ -1,0 +1,36 @@
+
+Tomasz Wegrzanowski
+===================
+* contributed the code that allows fri to find a method in the ancestors
+  for core classes
+
+Dee Zsombor
+===========
+* reported problem with ri-emacs setting $stdout.sync to true
+
+Greg Weber
+==========
+* came up with the idea to load optparse only when needed,
+  saving some 10-30ms per run.
+
+Steven Lumos
+============
+* found bug triggered by hyphens in Gem.path
+
+Lee Marlow
+==========
+* helped fix FastRI on Leopard
+
+Steve Madsen
+============
+* reported the problems on Leopard and tested the patches
+
+Nikolai Lugovoi
+===============
+* implemented -a (--all)
+
+rubikitch
+=========
+* ri-emacs work
+* -1 (--exact)
+* fixes

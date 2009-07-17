@@ -1,0 +1,102 @@
+FastRI Copyright (C) 2006  Mauricio Fernandez <mfp@acm.org>
+Inspired by ri-emacs.rb by Kristof Bastiaensen <kristof@vleeuwen.org>
+
+Overview
+========
+FastRI is an alternative to the ri command-line tool. It is *much* faster, and
+also allows you to offer RI lookup services over DRb. FastRI is a bit smarter
+than ri, and can find classes anywhere in the hierarchy without specifying the
+"full path". It also knows about gems, and can tell you e.g. which extensions
+to a core class were added by a specific gem.
+
+Install
+=======
+Just run  
+  setup.rb
+
+Usage
+=====
+FastRI can be used either standalone or with a DRb server, for extra speed.
+
+The standalone client is qri and is used the same way as ri; run
+ $ qri -h
+to list the options.
+
+There are two parts to FastRI over DRb:
+* the server: fastri-server
+* the client: fri
+
+FastRI uses a Rinda Ring to allow servers to be discovered automatically
+without needing to indicate the DRb URIs manually. It can work across 
+machines if you make sure the ring server is bound to the correct interface,
+and the ACL permissions are correct.
+
+qri and fri are nearly identical, the only difference being that fri tries to
+use a FastRI service over DRb by default.
+
+fri Quickstart
+--------------
+ $ fastri-server             (blocks)
+Later,
+ $ fri String
+ ---------------------------------------------------------- Class: String
+      A String object holds and manipulates an arbitrary sequence of
+      bytes, typically representing characters. String objects may be
+      created using String::new or as literals.
+ ...
+
+Read on for more information, including how to make FastRI work across
+machines.
+
+Launching the server
+--------------------
+For local usage, just
+  $ fastri-server
+will do. The DRb service will bind to 127.0.0.1, and only connections from
+127.0.0.1 will be allowed. If you want to allow fri to be used from other
+machines, you have to specify which interface to bind to, and allow incoming 
+connections from the desired hosts. For example, if your network is
+192.168.1.0, and your IP is 192.168.1.2, you can do
+  $ fastri-server -a 192.168.1.0/24 -s 192.168.1.2
+  FastRI 0.0.1 listening on druby://192.168.1.2:41217
+  ACL:
+  deny  all
+  allow localhost
+  allow 192.168.1.0/24
+
+Further options are documented in
+  $ fastri-server -h
+
+Using fri
+---------
+Running fri with no options (or -h/--help) will explain the command-line options.
+If you are using fri locally (i.e. on the same server as fastri-server), just use
+it as follows:
+  $ fri Array
+  ------------------------------------------------------- Class: Array
+  Arrays are ordered, integer-indexed collections of any object.
+  ...
+
+If you're on a different machine, you'll probably have to specify which
+address the DRb service should be attached to. You can either specify it with
+-s ADDRESS  (or --bind ADDRESS), or set the FASTRI_ADDR environment variable.
+For example, if you're on 192.168.1.101, both
+  export FASTRI_ADDR="192.168.1.101"
+  fri Array
+and
+  fri -s 192.168.1.101 Array
+will work. Note that FASTRI_ADDR is the *local* address: the server will be
+discovered automatically. (The reason why the local address must be specified
+is that it will be given to the ring server, which must be able to establish
+a reverse connection through the local DRb service.)
+
+Feedback
+========
+Bug reports, patches, comments... are appreciated.
+You can contact the author via <mfp@acm.org>. Please add "fastri" to the
+subject in order to bypass the spam filters.
+
+License
+=======
+FastRI is licensed under the same terms as Ruby. See LICENSE.
+

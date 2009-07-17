@@ -1,0 +1,61 @@
+
+User-visible changes in FastRI
+Since version 0.3.0 (2007-01-29)
+================================
+* speed increases
+* works on Leopard and with non-standard RubyGems setups
+* -1 (--exact) option to disable second-guessing.
+* -a (--all) option to show the documentation for all matching entries
+
+Since version 0.2.1 (2006-11-23)
+================================
+Features
+--------
+* get all the information about a class/module and its methods with --extended
+* new search methods: complete namespace (-Om), partial completion on both
+  namespace and method name (-Of), and case-indep. variants.
+* --local (-L) and --remote (-L) (default) options. --local makes fri operate
+  in standalone mode, without requiring fastri-server.
+* new executable: qri, equivalent to fri -L (local, standalone mode)
+* try to second-guess the correct method type if all search methods fail
+  and the type was explicitly given
+
+Since version 0.2.0 (2006-11-15)
+================================
+Features
+--------
+* fri will use a pager in full-text search mode, and also when asked to 
+  (-P, -T, --[no-]pager, --pager-cmd)
+* multiple queries supported:  fri upcase downcase
+* fri -S is 100ms faster since it avoids requiring rubygems.rb
+* list all classes/modules and methods with --classes and --methods, and both
+  with --list-names (-l)
+
+Since version 0.1.1 (2006-11-10)
+================================
+Features
+--------
+* fri can do full-text search (-S, --full-text); try  fri -S byte order
+* fri can now determine where a method actually came from for core classes
+  e.g.  fri File.inject   -> docs for Enumerable#inject
+* you can specify which ports the DRb services must bind to:
+    fastri-server -s 192.168.1.2:54321
+    fri -s 192.168.1.2:12345
+* new search methods: "anywhere" (a) and "anywhere, case-indep." (A)
+
+Since version 0.1.0 (2006-11-08)
+================================
+Features
+--------
+* the search strategy can be specified with --order 
+* added case-insensitive search strategies
+* --show-matches returns a list of matching entries
+* default output format defaults to 'plain' on win32
+
+Bugfixes
+--------
+* the home directory is detected correctly on win32
+* no more SecurityErrors due to calls to #require after $SAFE=1
+* index creation doesn't bomb when RubyGems is not installed
+* executables are added the .rb extension when installing on win32 with
+  setup.rb
